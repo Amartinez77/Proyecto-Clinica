@@ -1,0 +1,71 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'clinica-monitor'
+    environment: 'production'
+
+# Alertas
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+scrape_configs:
+  # Prometheus autoscrap
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 10s
+
+  # Backend - Métricas de aplicación
+  - job_name: 'clinica-backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['clinica_backend:4000']
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: [__scheme__]
+        target_label: scheme
+
+  # MySQL - Base de datos
+  - job_name: 'mysql-exporter'
+    static_configs:
+      - targets: ['mysql_exporter:9104']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+
+  # ProxySQL - Balanceo de Carga y Rendimiento interno
+  # Vital para ver cuántas queries van al Master vs Réplica
+  - job_name: 'proxysql'
+    static_configs:
+      # Asegúrate de que el nombre coincida con el servicio/contenedor en tu docker-compose
+      - targets: ['proxysql:42004']
+    scrape_interval: 10s
+
+  # Reemplaza el bloque de 'orchestrator' por este:
+  - job_name: 'mysql_replica'
+    static_configs:
+      - targets: ['mysql_replica_exporter:9104']
+    scrape_interval: 10s
+
+  # cAdvisor - Métricas de contenedores
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+
+  # Node Exporter - Métricas del sistema host
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+

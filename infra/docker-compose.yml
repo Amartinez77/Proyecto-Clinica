@@ -1,0 +1,273 @@
+services:
+# Reverse Proxy & Load Balancer
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    #environment:
+    #  - DOCKER_API_VERSION=1.44
+    ports:
+      - "80:80"      # Entrada Web
+      - "8090:8080"  # Dashboard Traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - app-network
+
+  # Servidor GLPI
+  glpi:
+    image: glpi/glpi:latest
+    container_name: glpi_app
+    restart: unless-stopped
+    #entrypoint: ["tail", "-f", "/dev/null"]
+    environment:
+      GLPI_DB_HOST: mysql_master
+      GLPI_DB_NAME: glpi
+      GLPI_DB_USER: app_user
+      GLPI_DB_PASSWORD: userpassword
+      GLPI_DB_PORT: 3306
+      TZ: America/Argentina/Buenos_Aires
+    ports:
+      - "8081:80"
+    volumes:
+      - docker_glpi_data:/var/glpi
+      - docker_glpi_plugins:/var/glpi/plugins
+    depends_on:
+      mysql_master: # Esperar a que la DB arranque
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # JIRA
+  jira:
+    image: atlassian/jira-software:9.15.0
+    container_name: jira_app
+    restart: unless-stopped
+    environment:
+      # CAMBIO: URL JDBC apuntando a proxysql:6033
+      ATL_JDBC_URL: jdbc:mysql://proxysql:6033/jiradb?useUnicode=true&characterEncoding=UTF-8&sessionVariables=default_storage_engine=InnoDB
+      ATL_JDBC_USER: jira
+      ATL_JDBC_PASSWORD: jira
+      ATL_DB_TYPE: mysql
+      ATL_DB_DRIVER: com.mysql.cj.jdbc.Driver
+      TZ: America/Argentina/Buenos_Aires
+      JVM_MIN_MEMORY: 1024m
+      JVM_MAX_MEMORY: 1536m
+    ports:
+      - "8080:8080"
+    volumes:
+      - docker_jira_data:/var/atlassian/application-data/jira
+    networks:
+      - app-network
+
+  # PHPMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: proxysql      # <-- CAMBIO
+      PMA_PORT: 6033          # <-- CAMBIO
+      MYSQL_ROOT_PASSWORD: root
+      PMA_ARBITRARY: 1
+    ports:
+      - "8082:80"
+    networks:
+      - app-network
+
+  # Nextcloud
+  nextcloud:
+    image: nextcloud:latest
+    container_name: nextcloud_app
+    restart: unless-stopped
+    ports:
+      - "8087:80"
+    environment:
+      MYSQL_HOST: proxysql:6033  # <-- CAMBIO: Especificamos host y puerto
+      MYSQL_DATABASE: nextcloud_db
+      MYSQL_USER: nextcloud_user
+      MYSQL_PASSWORD: root
+      NEXTCLOUD_TRUSTED_DOMAINS: "localhost 127.0.0.1 100.65.42.112"
+      TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - docker_nextcloud_html:/var/www/html
+      - docker_nextcloud_data:/var/www/html/data
+    networks:
+      - app-network
+
+  # Backend API Clinica
+  backend:
+    build:
+      context: ../backend/
+      dockerfile: Dockerfile
+    container_name: clinica_backend
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    # IMPORTANTE: Asegúrate de que tu archivo .env tenga:
+    # DB_HOST=proxysql
+    # DB_PORT=6033
+    environment:
+      - DB_HOST=proxysql
+      - DB_PORT=6033
+    labels:
+      - "traefik.enable=true"
+      # Regla: Responde a 'api.clinica.localhost' O a tu IP de Tailscale con el prefijo /api si lo prefieres
+      - "traefik.http.routers.backend.rule=Host(`api.clinica.localhost`) || Host(`100.x.y.z`)"
+      # IMPORTANTE: El puerto INTERNO de tu Node.js
+      - "traefik.http.services.backend.loadbalancer.server.port=4000"
+    networks:
+      - app-network
+
+  # Frontend Angular Clinica
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: clinica_frontend
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Regla: Responde al dominio principal
+      - "traefik.http.routers.frontend.rule=Host(`clinica.localhost`) || Host(`100.x.y.z`)"
+      # IMPORTANTE: El puerto INTERNO donde Nginx sirve Angular (usualmente 80)
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: unless-stopped
+    user: root
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/rules:/etc/prometheus/rules
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - cadvisor
+    networks:
+      - app-network
+
+  # Grafana
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - TZ=America/Argentina/Buenos_Aires
+    volumes:
+      - docker_grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # MySQL Exporter
+  mysql-exporter:
+    build:
+      context: ./mysql-exporter
+      dockerfile: Dockerfile
+    container_name: mysql_exporter
+    restart: unless-stopped
+    environment:
+      # Conectamos al ProxySQL para métricas generales
+      DATA_SOURCE_NAME: root:root@tcp(proxysql:6033)/clinica_db
+    ports:
+      - "9104:9104"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9104/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Cadvisor
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8086:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Node Exporter
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node_exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9100"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+
+# Volúmenes (Tus volúmenes de datos de apps)
+volumes:
+  docker_glpi_data:
+    external: true
+  docker_glpi_plugins:
+    external: true
+  docker_jira_data:
+    external: true
+  docker_grafana_data:
+    external: true
+  docker_nextcloud_html:
+    external: true
+  docker_nextcloud_data:
+    external: true
+  # Eliminé 'docker_mysql_data' de aquí porque ya no lo usa este archivo,
+  # lo usa el archivo de infra. Pero si quieres mantener la referencia no hace daño.
+
+# RED EXTERNA: CLAVE PARA QUE FUNCIONE
+networks:
+  app-network:
+    external: true
+    # Asegúrate de que este nombre coincida con el nombre de la red
+    # que creó tu docker-compose.mysql-cluster.yml.
+    # Normalmente es: nombrecarpeta_app-network.
+    # Si tu carpeta es "infra", probablemente sea:
+    name: infra_app-network

@@ -1,0 +1,10 @@
+[
+  {
+    "hostname": "mysql_master",
+    "port": 3306
+  },
+  {
+    "hostname": "mysql_replica",
+    "port": 3306
+  }
+]

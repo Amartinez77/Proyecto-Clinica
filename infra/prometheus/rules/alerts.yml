@@ -1,0 +1,138 @@
+groups:
+  # ---------------------------------------------------------
+  # 1. Alertas de Aplicación (Backend API)
+  # ---------------------------------------------------------
+  - name: clinica_backend_alerts
+    interval: 30s
+    rules:
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.95, rate(clinica_http_request_duration_seconds_bucket{job="clinica-backend"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "Alta latencia en Backend (P95 > 1s)"
+          description: "El 95% de las peticiones tardan más de 1s (Valor: {{ $value | printf \"%.2f\" }}s)"
+
+      - alert: HighErrorRate
+        # Evitamos división por cero si no hay tráfico
+        expr: (sum(rate(clinica_http_requests_total{status=~"5.."}[5m])) / sum(rate(clinica_http_requests_total[5m]) > 0)) * 100 > 5
+        for: 3m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "Tasa de errores HTTP elevada"
+          description: "Más del 5% de las peticiones dan error 5xx (Valor: {{ $value | printf \"%.2f\" }}%)"
+
+  # ---------------------------------------------------------
+  # 2. Alertas de Base de Datos (MySQL & Orchestrator)
+  # ---------------------------------------------------------
+  - name: clinica_database_alerts
+    interval: 30s
+    rules:
+      # Salud del Cluster (Vía Orchestrator)
+      - alert: MySQLMasterDown
+        # Si Orchestrator no ve un escritor (Master)
+        expr: orchestrator_cluster_master_is_read_only == 1
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "MySQL Master no disponible o en Read-Only"
+          description: "El cluster no tiene un nodo Master escribible."
+
+      - alert: MySQLReplicationLag
+        # Lag de replicación detectado por Orchestrator
+        expr: orchestrator_replica_seconds_behind_master > 30
+        for: 2m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Replicación MySQL retrasada"
+          description: "La réplica {{ $labels.instance }} tiene {{ $value }}s de retraso."
+
+      - alert: MySQLHighConnections
+        expr: mysql_global_status_threads_connected > 150
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Alto número de conexiones a MySQL"
+          description: "{{ $value }} conexiones activas."
+
+  # ---------------------------------------------------------
+  # 3. Alertas de ProxySQL (Balanceador)
+  # ---------------------------------------------------------
+  - name: clinica_proxysql_alerts
+    interval: 30s
+    rules:
+      - alert: ProxySQLConnectionPoolHigh
+        # Si el uso del pool de conexiones supera el 90%
+        expr: (proxysql_connection_pool_conn_used / proxysql_connection_pool_conn_total) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+          component: proxysql
+        annotations:
+          summary: "Pool de conexiones de ProxySQL saturado"
+          description: "El uso del pool hacia el backend es del {{ $value | printf \"%.2f\" }}%."
+
+      - alert: ProxySQLFrontendErrors
+        # Errores devueltos a la aplicación
+        expr: rate(proxysql_mysql_command_counter_errors_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          component: proxysql
+        annotations:
+          summary: "Errores en ProxySQL Frontend"
+          description: "ProxySQL está devolviendo errores a las aplicaciones."
+
+  # ---------------------------------------------------------
+  # 4. Alertas de Infraestructura (Sistema y Contenedores)
+  # ---------------------------------------------------------
+  - name: clinica_system_alerts
+    interval: 30s
+    rules:
+      - alert: LowDiskSpace
+        # Alerta cuando queda menos del 15% libre en particiones grandes (>10GB)
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"} / node_filesystem_size_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Espacio en disco bajo en {{ $labels.mountpoint }}"
+          description: "Queda {{ $value | printf \"%.2f\" }}% de espacio libre."
+
+      - alert: HighMemoryUsageContainer
+        expr: (container_memory_usage_bytes{name=~".+"} / container_spec_memory_limit_bytes{name=~".+"}) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          component: container
+        annotations:
+          summary: "Contenedor {{ $labels.name }} sin memoria"
+          description: "Uso de memoria: {{ $value | printf \"%.2f\" }}%"
+
+  # ---------------------------------------------------------
+  # 5. Disponibilidad de Servicios (Up/Down)
+  # ---------------------------------------------------------
+  - name: clinica_service_availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        # Monitoriza todos los targets configurados en prometheus.yml
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: availability
+        annotations:
+          summary: "Servicio {{ $labels.job }} caído"
+          description: "La instancia {{ $labels.instance }} del trabajo {{ $labels.job }} no responde."

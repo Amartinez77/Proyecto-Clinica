@@ -1,0 +1,119 @@
+version: "3.8"
+services:
+  mysql_master:
+    image: mysql:8.0
+    container_name: mysql_master
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - docker_mysql_data:/var/lib/mysql   # usa tu volumen con datos reales
+      - ./mysql-master/my.cnf:/etc/mysql/my.cnf:ro
+    ports:
+      - "33061:3306"   # puerto host de prueba (no necesario pero útil)
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql_replica:
+    image: mysql:8.0
+    container_name: mysql_replica
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - docker_mysql_replica1_data:/var/lib/mysql
+      - ./mysql-replica/my.cnf:/etc/mysql/my.cnf:ro
+      - ./mysql-replica/replica-init.sh:/docker-entrypoint-initdb.d/replica-init.sh:ro
+    depends_on:
+      - mysql_master
+    networks:
+      - app-network
+    ports:
+      - "33062:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  proxysql:
+    image: proxysql/proxysql
+    container_name: proxysql
+    restart: unless-stopped
+    ports:
+      - "6033:6033"    # puerto para apps
+      - "6032:6032"    # admin
+    volumes:
+      - ./proxysql:/etc/proxysql
+      # Volumen para cargar el script inicial
+      - ./proxysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app-network
+    depends_on:
+      - mysql_master
+      - mysql_replica
+
+  orchestrator:
+    image: vitess/orchestrator:latest
+    container_name: orchestrator
+    user: root
+    ports:
+      - "3002:3000"
+    volumes:
+      # Solo montamos el script que usaremos luego para ProxySQL.
+      # La configuración la generamos por comando para evitar errores de permisos en Ubuntu.
+      - ./orchestrator/orchestrator-proxysql-handler.sh:/usr/local/orchestrator-proxysql-handler.sh:ro
+    networks:
+      - app-network
+    depends_on:
+      - mysql_master
+      - mysql_replica
+    
+    # 🚀 COMANDO MAESTRO:
+    # 1. Crea el archivo config.json con SQLite y SSL Skip (para evitar el error de certificados).
+    # 2. Arranca Orchestrator usando ese archivo.
+    command: [
+      "/bin/sh", "-c",
+      "echo '{\"Debug\": true, \"ListenAddress\": \":3000\", \"BackendDB\": \"sqlite\", \"SQLite3DataFile\": \"/var/tmp/orchestrator.db\", \"RaftEnabled\": false, \"MySQLTopologyUser\": \"root\", \"MySQLTopologyPassword\": \"root\", \"MySQLSSLSkipVerify\": true, \"PostMasterFailoverProcesses\": [\"/usr/local/orchestrator-proxysql-handler.sh {masterHost} {masterPort}\"]}' > /tmp/config.json && /usr/local/orchestrator/orchestrator --debug --config=/tmp/config.json http"
+    ]
+
+  # Exporter específico para métricas de ProxySQL
+  proxysql-exporter:
+    image: superbalist/proxysql-exporter:latest
+    container_name: proxysql_exporter
+    restart: unless-stopped
+    network_mode: "service:proxysql"
+    environment:
+      # Conectamos con usuario admin al host 'proxysql' puerto 6032
+      - DATA_SOURCE_NAME=stats:stats@tcp(127.0.0.1:6032)/
+    depends_on:
+      - proxysql
+
+  # Exporter dedicado para la Réplica (Para medir el Lag real)
+  mysql-replica-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: mysql_replica_exporter
+    restart: unless-stopped
+    volumes:
+      - ./exporter.cnf:/.my.cnf
+    ports:
+      - "9105:9104"  # Usamos el puerto 9105 para no chocar con el otro
+    networks:
+      - app-network
+    depends_on:
+      - mysql_replica
+
+volumes:
+  docker_mysql_data:
+    external: true
+  docker_mysql_replica1_data:
+  # docker_mysql_data is external (tienes que tenerlo definido en tu compose principal)
+networks:
+  app-network:
+    external: true
+    name: infra_app-network
