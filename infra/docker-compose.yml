@@ -37,9 +37,9 @@ services:
     volumes:
       - docker_glpi_data:/var/glpi
       - docker_glpi_plugins:/var/glpi/plugins
-    depends_on:
-      mysql_master: # Esperar a que la DB arranque
-        condition: service_healthy
+    #depends_on:
+    #  mysql_master: # Esperar a que la DB arranque
+    #    condition: service_healthy
     networks:
       - app-network
 
