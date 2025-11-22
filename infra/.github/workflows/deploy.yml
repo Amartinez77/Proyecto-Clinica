@@ -1,0 +1,37 @@
+name: CI/CD - Despliegue en Casa
+
+on:
+  push:
+    branches: [ "main" ] # Se activa con cualquier push a 'main'
+
+jobs:
+  deploy:
+    name: Despliegue a Host Local
+    runs-on: self-hosted # 👈 Ejecuta en el agente que acabas de configurar
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Sincronizar y Desplegar Infraestructura
+        run: |
+          echo "🚀 Iniciando despliegue automático..."
+          
+          # Mover a la carpeta donde están los archivos compose
+          cd /opt/Proyecto-Clinica/infra
+
+          # Sincronizar el contenido actual del disco con GitHub
+          # Esto es necesario si el runner no está en la misma carpeta que el git clone
+          git pull origin main
+          
+          # 1. Actualizar Cluster de Datos (MySQL, ProxySQL, Orchestrator)
+          docker compose -f docker-compose.mysql-cluster.yml up -d --remove-orphans
+
+          # 2. Actualizar Aplicaciones (Front, Back, GLPI, Traefik, Monitoring)
+          # --build fuerza la compilación de Node/Angular
+          docker compose up -d --build --remove-orphans
+
+          echo "✅ Despliegue completado."
+          
+          # 3. Limpieza de imágenes viejas
+          docker image prune -f
