@@ -17,21 +17,17 @@ jobs:
         run: |
           echo "🚀 Iniciando despliegue automático..."
           
-          # Mover a la carpeta donde están los archivos compose
           cd /opt/Proyecto-Clinica/infra
-
-          # Sincronizar el contenido actual del disco con GitHub
-          # Esto es necesario si el runner no está en la misma carpeta que el git clone
+          git reset --hard HEAD
           git pull origin main
           
-          # 1. Actualizar Cluster de Datos (MySQL, ProxySQL, Orchestrator)
-          docker compose -f docker-compose.mysql-cluster.yml up -d --remove-orphans
-
-          # 2. Actualizar Aplicaciones (Front, Back, GLPI, Traefik, Monitoring)
-          # --build fuerza la compilación de Node/Angular
-          docker compose up -d --build --remove-orphans
-
-          echo "✅ Despliegue completado."
+          echo "🔄 Levantando TODO el stack (Infra + Apps) junto..."
           
-          # 3. Limpieza de imágenes viejas
+          # COMANDO CORREGIDO: Cargamos ambos archivos a la vez (-f ... -f ...)
+          # Así Docker sabe que la DB y las Apps son amigos y no borra nada.
+          docker compose -f docker-compose.mysql-cluster.yml -f docker-compose.yml up -d --build --remove-orphans
+
+          echo "🧹 Limpiando imágenes viejas..."
           docker image prune -f
+          
+          echo "✅ Despliegue completado."
