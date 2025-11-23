@@ -20,6 +20,12 @@ jobs:
           cd /opt/Proyecto-Clinica/infra
           git reset --hard HEAD
           git pull origin main
+
+          # Actualizar también el código del Front y Back
+          echo "🔄 Sincronizando Submódulos..."
+          cd .. # Subimos a la raíz donde están los submódulos
+          git submodule update --init --recursive
+          cd infra # Volvemos a bajar a infra para ejecutar docker
           
           echo "🔄 Levantando TODO el stack (Infra + Apps) junto..."
           

@@ -109,12 +109,6 @@ services:
     restart: unless-stopped
     env_file:
       - ../backend/.env
-    # IMPORTANTE: Asegúrate de que tu archivo .env tenga:
-    # DB_HOST=proxysql
-    # DB_PORT=6033
-    environment:
-      - DB_HOST=proxysql
-      - DB_PORT=6033
     labels:
       - "traefik.enable=true"
       # Regla: Responde a 'api.clinica.localhost' O a tu IP de Tailscale con el prefijo /api si lo prefieres
