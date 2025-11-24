@@ -9,16 +9,16 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.http.tls.certificates[0].certFile=/opt/traefik/certs/glpi.crt"
-      - "--entrypoints.websecure.http.tls.certificates[0].keyFile=/opt/traefik/certs/glpi.key"
-      - "--entrypoints.websecure.http.tls.certificates[1].certFile=/opt/traefik/certs/jira.crt"
-      - "--entrypoints.websecure.http.tls.certificates[1].keyFile=/opt/traefik/certs/jira.key"
-      - "--entrypoints.websecure.http.tls.certificates[2].certFile=/opt/traefik/certs/frontend.crt"
-      - "--entrypoints.websecure.http.tls.certificates[2].keyFile=/opt/traefik/certs/frontend.key"
-      - "--entrypoints.websecure.http.tls.certificates[3].certFile=/opt/traefik/certs//grafana.crt"
-      - "--entrypoints.websecure.http.tls.certificates[3].keyFile=/opt/traefik/certs/grafana.key"
-      - "--entrypoints.websecure.http.tls.certificates[4].certFile=/opt/traefik/certs/backend.crt"
-      - "--entrypoints.websecure.http.tls.certificates[4].keyFile=/opt/traefik/certs/backend.key"
+      - "--entrypoints.websecure.http.tls.certificates[0].certFile=/certs/glpi.crt"
+      - "--entrypoints.websecure.http.tls.certificates[0].keyFile=/certs/glpi.key"
+      - "--entrypoints.websecure.http.tls.certificates[1].certFile=/certs/jira.crt"
+      - "--entrypoints.websecure.http.tls.certificates[1].keyFile=/certs/jira.key"
+      - "--entrypoints.websecure.http.tls.certificates[2].certFile=/certs/frontend.crt"
+      - "--entrypoints.websecure.http.tls.certificates[2].keyFile=/certs/frontend.key"
+      - "--entrypoints.websecure.http.tls.certificates[3].certFile=/certs/grafana.crt"
+      - "--entrypoints.websecure.http.tls.certificates[3].keyFile=/certs/grafana.key"
+      - "--entrypoints.websecure.http.tls.certificates[4].certFile=/certs/backend.crt"
+      - "--entrypoints.websecure.http.tls.certificates[4].keyFile=/certs/backend.key"
     
     #environment:
     #  - DOCKER_API_VERSION=1.44
@@ -28,7 +28,7 @@ services:
       - "8090:8080"  # Dashboard Traefik
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/certs:/certs:ro
+      - /opt/traefik/certs:/certs:ro
     networks:
       - app-network
 
