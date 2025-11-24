@@ -9,13 +9,25 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.http.tls.certificates[0].certFile=/opt/traefik/certs/glpi.crt"
+      - "--entrypoints.websecure.http.tls.certificates[0].keyFile=/opt/traefik/certs/glpi.key"
+      - "--entrypoints.websecure.http.tls.certificates[1].certFile=/opt/traefik/certs/jira.crt"
+      - "--entrypoints.websecure.http.tls.certificates[1].keyFile=/opt/traefik/certs/jira.key"
+      - "--entrypoints.websecure.http.tls.certificates[2].certFile=/opt/traefik/certs/frontend.crt"
+      - "--entrypoints.websecure.http.tls.certificates[2].keyFile=/opt/traefik/certs/frontend.key"
+      - "--entrypoints.websecure.http.tls.certificates[3].certFile=/opt/traefik/certs//grafana.crt"
+      - "--entrypoints.websecure.http.tls.certificates[3].keyFile=/opt/traefik/certs/grafana.key"
+      - "--entrypoints.websecure.http.tls.certificates[4].certFile=/opt/traefik/certs/backend.crt"
+      - "--entrypoints.websecure.http.tls.certificates[4].keyFile=/opt/traefik/certs/backend.key"
     #environment:
     #  - DOCKER_API_VERSION=1.44
     ports:
       - "80:80"      # Entrada Web
+      - "443:443"    # Entrada HTTPS
       - "8090:8080"  # Dashboard Traefik
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/certs:/certs:ro
     networks:
       - app-network
 
@@ -25,6 +37,11 @@ services:
     container_name: glpi_app
     restart: unless-stopped
     #entrypoint: ["tail", "-f", "/dev/null"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.glpi.rule=Host(`glpi.localhost`)"
+      - "traefik.http.routers.glpi.entrypoints=websecure"
+      - "traefik.http.services.glpi.loadbalancer.server.port=80"
     environment:
       GLPI_DB_HOST: mysql_master
       GLPI_DB_NAME: glpi
@@ -32,8 +49,8 @@ services:
       GLPI_DB_PASSWORD: userpassword
       GLPI_DB_PORT: 3306
       TZ: America/Argentina/Buenos_Aires
-    ports:
-      - "8081:80"
+    expose:
+      - "80"
     volumes:
       - docker_glpi_data:/var/glpi
       - docker_glpi_plugins:/var/glpi/plugins
@@ -48,6 +65,11 @@ services:
     image: atlassian/jira-software:9.15.0
     container_name: jira_app
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jira.rule=Host(`jira.localhost`)"
+      - "traefik.http.routers.jira.entrypoints=websecure"
+      - "traefik.http.services.jira.loadbalancer.server.port=8080"
     environment:
       # CAMBIO: URL JDBC apuntando a proxysql:6033
       ATL_JDBC_URL: jdbc:mysql://proxysql:6033/jiradb?useUnicode=true&characterEncoding=UTF-8&sessionVariables=default_storage_engine=InnoDB
@@ -58,8 +80,8 @@ services:
       TZ: America/Argentina/Buenos_Aires
       JVM_MIN_MEMORY: 1024m
       JVM_MAX_MEMORY: 1536m
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     volumes:
       - docker_jira_data:/var/atlassian/application-data/jira
     networks:
@@ -75,8 +97,8 @@ services:
       PMA_PORT: 6033          # <-- CAMBIO
       MYSQL_ROOT_PASSWORD: root
       PMA_ARBITRARY: 1
-    ports:
-      - "8082:80"
+    expose:
+      - "80"
     networks:
       - app-network
 
@@ -113,6 +135,7 @@ services:
       - "traefik.enable=true"
       # Regla: Responde a 'api.clinica.localhost' O a tu IP de Tailscale con el prefijo /api si lo prefieres
       - "traefik.http.routers.backend.rule=Host(`api.clinica.localhost`) || Host(`100.x.y.z`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
       # IMPORTANTE: El puerto INTERNO de tu Node.js
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
     networks:
@@ -129,6 +152,7 @@ services:
       - "traefik.enable=true"
       # Regla: Responde al dominio principal
       - "traefik.http.routers.frontend.rule=Host(`clinica.localhost`) || Host(`100.x.y.z`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
       # IMPORTANTE: El puerto INTERNO donde Nginx sirve Angular (usualmente 80)
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
     depends_on:
@@ -158,6 +182,11 @@ services:
   grafana:
     image: grafana/grafana
     container_name: grafana
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
     ports:
       - "3001:3000"
     environment:
@@ -186,8 +215,8 @@ services:
     environment:
       # Conectamos al ProxySQL para métricas generales
       DATA_SOURCE_NAME: root:root@tcp(proxysql:6033)/clinica_db
-    ports:
-      - "9104:9104"
+    expose:
+      - "9104"
     networks:
       - app-network
     healthcheck:
@@ -201,8 +230,8 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
-    ports:
-      - "8086:8080"
+    expose:
+      - "8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -217,8 +246,8 @@ services:
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node_exporter
-    ports:
-      - "9100:9100"
+    expose:
+      - "9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
