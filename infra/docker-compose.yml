@@ -19,7 +19,7 @@ services:
     networks:
       - app-network
 
-  # Servidor GLPI
+  # Servidor GLPI *
   glpi:
     image: glpi/glpi:latest
     container_name: glpi_app
