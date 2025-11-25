@@ -58,8 +58,12 @@ services:
       TZ: America/Argentina/Buenos_Aires
       JVM_MIN_MEMORY: 1024m
       JVM_MAX_MEMORY: 1536m
-    ports:
-      - "8080:8080"
+    labels:
+        - "traefik.enable=true"
+        # Regla: Responde al dominio principal para Jira
+        - "traefik.http.routers.jira.rule=Host(`jira.local`) || Host(`100.x.y.z`)"
+        # Puerto interno donde Jira escucha
+        - "traefik.http.services.jira.loadbalancer.server.port=8080"
     volumes:
       - docker_jira_data:/var/atlassian/application-data/jira
     networks:
