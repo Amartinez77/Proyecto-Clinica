@@ -1,0 +1,4 @@
+pliegue/
+.github_workflows/pliegue/
+__pycache__/
+*.pyc
