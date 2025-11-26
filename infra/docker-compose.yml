@@ -43,7 +43,7 @@ services:
     labels:
         - "traefik.enable=true"
         # Dominio/host por el que querés acceder a GLPI (ajústalo a tu dominio/IP Tailscale)
-        - "traefik.http.routers.glpi.rule=Host(`glpi.local`) || Host(`100.x.y.z`)"
+        - "traefik.http.routers.glpi.rule=Host(`glpi.tail9fe3bf.ts.net`)"
         # Puerto interno del contenedor GLPI (Apache escucha en 80)
         - "traefik.http.services.glpi.loadbalancer.server.port=80"
         # Habilitar HTTPS con certificado automático de Tailscale
