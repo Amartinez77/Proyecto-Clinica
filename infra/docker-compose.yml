@@ -135,8 +135,8 @@ services:
       # Puerto interno de Nextcloud (Apache escucha en 80)
       - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
       # HTTPS con certificado automático de Tailscale
-      - "traefik.http.routers.nextcloud.entrypoints=websecure"
-      - "traefik.http.routers.nextcloud.tls.certresolver=myresolver"
+      #- "traefik.http.routers.nextcloud.entrypoints=websecure"
+      #- "traefik.http.routers.nextcloud.tls.certresolver=myresolver"
     networks:
       - app-network
 
