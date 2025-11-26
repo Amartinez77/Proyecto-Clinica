@@ -77,6 +77,9 @@ services:
         - "traefik.http.routers.jira.rule=Host(`jira.local`) || Host(`100.x.y.z`)"
         # Puerto interno donde Jira escucha
         - "traefik.http.services.jira.loadbalancer.server.port=8080"
+        # Habilitar HTTPS con certificado automático de Tailscale
+        - "traefik.http.routers.jira.entrypoints=websecure"
+        - "traefik.http.routers.jira.tls.certresolver=myresolver"
     volumes:
       - docker_jira_data:/var/atlassian/application-data/jira
     networks:
@@ -100,6 +103,9 @@ services:
       - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.local`) || Host(`100.x.y.z`)"
       # Puerto interno del contenedor (PHPMyAdmin usa Apache en 80)
       - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
+      # Habilitar HTTPS con certificado automático de Tailscale
+      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
     networks:
       - app-network
 
@@ -120,6 +126,15 @@ services:
     volumes:
       - docker_nextcloud_html:/var/www/html
       - docker_nextcloud_data:/var/www/html/data
+    labels:
+      - "traefik.enable=true"
+      # Regla: dominio local o IP Tailscale
+      - "traefik.http.routers.nextcloud.rule=Host(`nextcloud.local`) || Host(`100.x.y.z`)"
+      # Puerto interno de Nextcloud (Apache escucha en 80)
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      # HTTPS con certificado automático de Tailscale
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.tls.certresolver=myresolver"
     networks:
       - app-network
 
@@ -138,6 +153,9 @@ services:
       - "traefik.http.routers.backend.rule=Host(`api.clinica.local`) || Host(`100.x.y.z`)"
       # IMPORTANTE: El puerto INTERNO de tu Node.js
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
+      # Habilitar HTTPS con certificado automático de Tailscale
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=myresolver"
     networks:
       - app-network
 
@@ -154,6 +172,9 @@ services:
       - "traefik.http.routers.frontend.rule=Host(`clinica.local`) || Host(`100.x.y.z`)"
       # IMPORTANTE: El puerto INTERNO donde Nginx sirve Angular (usualmente 80)
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      # Habilitar HTTPS con certificado automático de Tailscale
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=myresolver"
     depends_on:
       - backend
     networks:
@@ -199,6 +220,9 @@ services:
       - "traefik.http.routers.grafana.rule=Host(`grafana.local`) || Host(`100.x.y.z`)"
       # Puerto interno de Grafana (es 3000)
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      # Habilitar HTTPS con certificado automático de Tailscale
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=myresolver"
     depends_on:
       - prometheus
     networks:
