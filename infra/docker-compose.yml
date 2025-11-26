@@ -32,8 +32,12 @@ services:
       GLPI_DB_PASSWORD: userpassword
       GLPI_DB_PORT: 3306
       TZ: America/Argentina/Buenos_Aires
-    ports:
-      - "8081:80"
+    labels:
+        - "traefik.enable=true"
+        # Dominio/host por el que querés acceder a GLPI (ajústalo a tu dominio/IP Tailscale)
+        - "traefik.http.routers.glpi.rule=Host(`glpi.local`) || Host(`100.x.y.z`)"
+        # Puerto interno del contenedor GLPI (Apache escucha en 80)
+        - "traefik.http.services.glpi.loadbalancer.server.port=80"
     volumes:
       - docker_glpi_data:/var/glpi
       - docker_glpi_plugins:/var/glpi/plugins
@@ -79,8 +83,14 @@ services:
       PMA_PORT: 6033          # <-- CAMBIO
       MYSQL_ROOT_PASSWORD: root
       PMA_ARBITRARY: 1
-    ports:
-      - "8082:80"
+    #ports:
+    #  - "8082:80"
+    labels:
+      - "traefik.enable=true"
+      # Dominio/host para acceder a PHPMyAdmin
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.local`) || Host(`100.x.y.z`)"
+      # Puerto interno del contenedor (PHPMyAdmin usa Apache en 80)
+      - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
     networks:
       - app-network
 
@@ -116,7 +126,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Regla: Responde a 'api.clinica.localhost' O a tu IP de Tailscale con el prefijo /api si lo prefieres
-      - "traefik.http.routers.backend.rule=Host(`api.clinica.localhost`) || Host(`100.x.y.z`)"
+      - "traefik.http.routers.backend.rule=Host(`api.clinica.local`) || Host(`100.x.y.z`)"
       # IMPORTANTE: El puerto INTERNO de tu Node.js
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
     networks:
@@ -151,8 +161,8 @@ services:
       - ./prometheus/rules:/etc/prometheus/rules
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-    ports:
-      - "9090:9090"
+    #ports:
+    # - "9090:9090"
     depends_on:
       - cadvisor
     networks:
@@ -162,8 +172,8 @@ services:
   grafana:
     image: grafana/grafana
     container_name: grafana
-    ports:
-      - "3001:3000"
+    #ports:
+    #  - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
       - GF_USERS_ALLOW_SIGN_UP=false
@@ -174,6 +184,12 @@ services:
     volumes:
       - docker_grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
+    labels:
+      - "traefik.enable=true"
+      # Dominio/host para acceder a Grafana
+      - "traefik.http.routers.grafana.rule=Host(`grafana.local`) || Host(`100.x.y.z`)"
+      # Puerto interno de Grafana (es 3000)
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
     depends_on:
       - prometheus
     networks:
@@ -190,8 +206,8 @@ services:
     environment:
       # Conectamos al ProxySQL para métricas generales
       DATA_SOURCE_NAME: root:root@tcp(proxysql:6033)/clinica_db
-    ports:
-      - "9104:9104"
+    #ports:
+    #  - "9104:9104"
     networks:
       - app-network
     healthcheck:
@@ -205,8 +221,8 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
-    ports:
-      - "8086:8080"
+    #ports:
+    #  - "8086:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -221,8 +237,8 @@ services:
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node_exporter
-    ports:
-      - "9100:9100"
+    #ports:
+    #  - "9100:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
