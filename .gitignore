@@ -2,3 +2,7 @@ pliegue/
 .github_workflows/pliegue/
 __pycache__/
 *.pyc
+
+certs/
+*.key
+*.crt

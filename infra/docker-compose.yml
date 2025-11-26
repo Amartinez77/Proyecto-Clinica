@@ -10,9 +10,10 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.myresolver.tailscale=true"
+      - "--providers.file.filename=/etc/traefik/dynamic_conf.yml"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--log.level=DEBUG"
     #environment:
     #  - DOCKER_API_VERSION=1.44
     ports:
@@ -21,7 +22,8 @@ services:
       - "8090:8080"  # Dashboard Traefik
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock:ro
+      - ./certs:/etc/traefik/certs:ro
+      - ./dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
     networks:
       - app-network
 
@@ -150,12 +152,12 @@ services:
     labels:
       - "traefik.enable=true"
       # Regla: Responde a 'api.clinica.localhost' O a tu IP de Tailscale con el prefijo /api si lo prefieres
-      - "traefik.http.routers.backend.rule=Host(`api.clinica.local`) || Host(`100.x.y.z`)"
+      - "traefik.http.routers.backend.rule=Host(`api.clinica.tail9fe3bf.ts.net`)"
       # IMPORTANTE: El puerto INTERNO de tu Node.js
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
       # Habilitar HTTPS con certificado automático de Tailscale
       - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend.tls=true"
     networks:
       - app-network
 
@@ -169,12 +171,12 @@ services:
     labels:
       - "traefik.enable=true"
       # Regla: Responde al dominio principal
-      - "traefik.http.routers.frontend.rule=Host(`clinica.local`) || Host(`100.x.y.z`)"
+      - "traefik.http.routers.frontend.rule=Host(`clinica.tail9fe3bf.ts.net`)"
       # IMPORTANTE: El puerto INTERNO donde Nginx sirve Angular (usualmente 80)
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
       # Habilitar HTTPS con certificado automático de Tailscale
-      - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
     depends_on:
       - backend
     networks:
