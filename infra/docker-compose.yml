@@ -48,7 +48,7 @@ services:
         - "traefik.http.services.glpi.loadbalancer.server.port=80"
         # Habilitar HTTPS con certificado automático de Tailscale
         - "traefik.http.routers.glpi.entrypoints=websecure"
-        - "traefik.http.routers.glpi.tls.certresolver=myresolver"
+        - "traefik.http.routers.glpi.tls=true"
     volumes:
       - docker_glpi_data:/var/glpi
       - docker_glpi_plugins:/var/glpi/plugins
