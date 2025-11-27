@@ -73,15 +73,17 @@ services:
       TZ: America/Argentina/Buenos_Aires
       JVM_MIN_MEMORY: 1024m
       JVM_MAX_MEMORY: 1536m
-    labels:
-        - "traefik.enable=true"
+    ports:
+      - "8080:8080"
+    #labels:
+        #- "traefik.enable=true"
         # Regla: Responde al dominio principal para Jira
-        - "traefik.http.routers.jira.rule=Host(`jira.local`) || Host(`100.x.y.z`)"
+        # - "traefik.http.routers.jira.rule=Host(`jira.local`) || Host(`100.x.y.z`)"
         # Puerto interno donde Jira escucha
-        - "traefik.http.services.jira.loadbalancer.server.port=8080"
+        # - "traefik.http.services.jira.loadbalancer.server.port=8080"
         # Habilitar HTTPS con certificado automático de Tailscale
-        - "traefik.http.routers.jira.entrypoints=websecure"
-        - "traefik.http.routers.jira.tls.certresolver=myresolver"
+        #- "traefik.http.routers.jira.entrypoints=websecure"
+        #- "traefik.http.routers.jira.tls.certresolver=myresolver"
     volumes:
       - docker_jira_data:/var/atlassian/application-data/jira
     networks:
@@ -128,12 +130,12 @@ services:
     volumes:
       - docker_nextcloud_html:/var/www/html
       - docker_nextcloud_data:/var/www/html/data
-    labels:
-      - "traefik.enable=true"
+    #labels:
+      #- "traefik.enable=true"
       # Regla: dominio local o IP Tailscale
-      - "traefik.http.routers.nextcloud.rule=Host(`nextcloud.local`) || Host(`100.x.y.z`)"
+      #- "traefik.http.routers.nextcloud.rule=Host(`nextcloud.local`) || Host(`100.x.y.z`)"
       # Puerto interno de Nextcloud (Apache escucha en 80)
-      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      #- "traefik.http.services.nextcloud.loadbalancer.server.port=80"
       # HTTPS con certificado automático de Tailscale
       #- "traefik.http.routers.nextcloud.entrypoints=websecure"
       #- "traefik.http.routers.nextcloud.tls.certresolver=myresolver"
