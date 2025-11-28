@@ -26,7 +26,7 @@ services:
       - ./dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
     networks:
       - app-network
-
+ 
   # Servidor GLPI
   glpi:
     image: glpi/glpi:latest
