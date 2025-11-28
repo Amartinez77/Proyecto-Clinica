@@ -1,0 +1,10 @@
+tunnel: 885b287d-d6aa-45f9-8960-b380b68dbac4
+credentials-file: /etc/cloudflared/creds/885b287d-d6aa-45f9-8960-b380b68dbac4.json
+
+ingress:
+  # Regla para el test
+  - hostname: clinica.clinica-hia.site
+    service: http://192.168.100.30:8888
+  
+  # Regla por defecto (Catch-all)
+  - service: http_status:404

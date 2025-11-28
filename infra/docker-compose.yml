@@ -170,6 +170,8 @@ services:
       dockerfile: Dockerfile
     container_name: clinica_frontend
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:8083:80"
     labels:
       - "traefik.enable=true"
       # Regla: Responde al dominio principal
@@ -294,7 +296,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
 
 # Volúmenes (Tus volúmenes de datos de apps)
 volumes:

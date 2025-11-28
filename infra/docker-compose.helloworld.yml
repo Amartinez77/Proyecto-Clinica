@@ -1,0 +1,7 @@
+services:
+  hello-mundo:
+    image: nginx:latest
+    container_name: hello_mundo
+    restart: unless-stopped
+    ports:
+      - "8888:80"

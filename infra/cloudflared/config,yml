@@ -1,0 +1,14 @@
+tunnel: 885b287d-d6aa-45f9-8960-b380b68dbac4
+credentials-file: /root/.cloudflared/885b287d-d6aa-45f9-8960-b380b68dbac4.json
+
+ingress:
+  # Regla para el Frontend (Clínica)
+  - hostname: clinica.clinica-hia.site
+    service: http://traefik:80
+  
+  # Regla para la API (Backend)
+  - hostname: api.clinica-hia.site
+    service: http://traefik:80
+  
+  # Regla por defecto (Catch-all)
+  - service: http_status:404
