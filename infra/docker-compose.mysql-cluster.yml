@@ -108,6 +108,7 @@ services:
     depends_on:
       - mysql_replica
 
+#sajasjafshaf
 volumes:
   docker_mysql_data:
     external: true
